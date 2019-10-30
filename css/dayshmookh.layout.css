@@ -1,0 +1,181 @@
+/* body flex adjustment for  sticky footer */
+
+body {
+    display: flex;
+    min-height: 100vh;
+    flex-direction: column;
+}
+
+main {
+    flex: 1 0 auto;
+}
+
+/* --- */
+
+.hidden {
+    display: none;
+}
+
+.screen-unit {
+    width: 100vw;
+    height: 100vh;
+}
+
+.screen-height {
+    height: 100vh;
+}
+
+.screen-width {
+    width: 100vh;
+}
+
+.full-width {
+    width: 100%;
+}
+
+.full-height {
+    height: 100%;
+}
+
+.strong {
+    font-weight: 600;
+}
+
+.rounded {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.curvy {
+    border-radius: 64px;
+    overflow: hidden;
+}
+
+.no-overflow {
+    overflow: hidden;
+}
+
+.fixed {
+    position: fixed;
+}
+
+/* padding classes */
+
+.no-padding {
+    padding: 0;
+}
+
+.padded-compact {
+    padding: 20px;
+}
+
+.padded-comfortable {
+    padding: 45px;
+}
+
+.padded-cozy {
+    padding: 70px;
+}
+
+.padded-top-compact {
+    padding-top: 20px;
+}
+
+.padded-top-comfortable {
+    padding-top: 45px;
+}
+
+.padded-top-cozy {
+    padding-top: 70px;
+}
+
+.padded-bottom-compact {
+    padding-bottom: 20px;
+}
+
+.padded-bottom-comfortable {
+    padding-bottom: 45px;
+}
+
+.padded-bottom-cozy {
+    padding-bottom: 70px;
+}
+
+/* margin classes */
+.no-margin {
+    margin: 0;
+}
+
+.margined-compact {
+    margin: 20px;
+}
+
+.margined-comfortable {
+    margin: 45px;
+}
+
+.margined-cozy {
+    margin: 70px;
+}
+
+.margined-top-compact {
+    margin-top: 20px;
+}
+
+.margined-top-comfortable {
+    margin-top: 45px;
+}
+
+.margined-top-cozy {
+    margin-top: 70px;
+}
+
+.margined-bottom-compact {
+    margin-bottom: 20px;
+}
+
+.margined-bottom-comfortable {
+    margin-bottom: 45px;
+}
+
+.margined-bottom-cozy {
+    margin-bottom: 70px;
+}
+
+/* ----- */
+
+
+img.dark {
+    filter: brightness(60%) saturate(110%);
+}
+
+
+.card img.dark {
+    filter: brightness(90%) saturate(150%);
+}
+
+.card img.dark:hover {
+    filter: initial;
+}
+
+/* simple transitions */
+
+.zoomer {
+    transition: transform 0.25s ease-in-out;
+}
+
+.zoomer:hover {
+    transform: scale(1.05, 1.05);
+}
+
+.fader {
+    filter: brightness(60%);
+}
+
+.fader:hover {
+    filter: brightness(90%);
+}
+
+.shadow-text {
+    text-shadow: 0 2px 8px black;
+}
