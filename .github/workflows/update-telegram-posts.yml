@@ -1,0 +1,139 @@
+name: Update Telegram Stats
+
+on:
+  schedule:
+    # Runs every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  update-stats:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Fetch Telegram channel data
+        id: fetch-data
+        run: |
+          # Fetch the public Telegram channel page
+          HTML=$(curl -s "https://t.me/s/iPapkorn")
+          
+          # Extract subscriber count (format: "2.48M subscribers" or "2480000 subscribers")
+          SUBSCRIBERS=$(echo "$HTML" | grep -oP '[\d.]+[KMB]?\s*subscribers' | head -1 | grep -oP '^[\d.]+[KMB]?')
+          
+          if [ -z "$SUBSCRIBERS" ]; then
+            # Try alternative format from page extra
+            SUBSCRIBERS=$(echo "$HTML" | grep -oP 'tgme_page_extra">[^<]+' | grep -oP '[\d.]+[KMB]?' | head -1)
+          fi
+          
+          # Get the last post ID to calculate approximate post count
+          LAST_POST_ID=$(echo "$HTML" | grep -oP 'data-post="iPapkorn/\K[0-9]+' | sort -rn | head -1)
+          
+          # Format post count in K format
+          if [ -n "$LAST_POST_ID" ]; then
+            POST_COUNT_K=$(awk "BEGIN {printf \"%.1f\", $LAST_POST_ID/1000}")K
+          fi
+          
+          # Extract post IDs for recent posts widget (get latest 3)
+          POST_IDS=$(echo "$HTML" | grep -oP 'data-post="iPapkorn/\K[0-9]+' | sort -rn | head -3)
+          readarray -t IDS <<< "$POST_IDS"
+          
+          # Extract view counts for the latest posts
+          VIEW_COUNTS=$(echo "$HTML" | grep -oP 'tgme_widget_message_views">[^<]+' | grep -oP '[\d.]+[KMB]?' | head -3)
+          readarray -t VIEWS <<< "$VIEW_COUNTS"
+          
+          # Extract post dates (datetime attributes)
+          POST_DATES=$(echo "$HTML" | grep -oP 'datetime="\K[^"]+' | head -3)
+          readarray -t DATES <<< "$POST_DATES"
+          
+          # Extract movie titles (first line of post text, cleaned)
+          MOVIE_TITLES=$(echo "$HTML" | grep -oP 'tgme_widget_message_text[^>]*>\s*<[^>]*>\K[^<]+' | head -3)
+          
+          # Extract channel description
+          CHANNEL_DESC=$(echo "$HTML" | grep -oP 'tgme_channel_info_description">\K[^<]+' | head -1)
+          
+          # Extract poster images from recent posts
+          POSTER_IMAGES=$(echo "$HTML" | grep -oP "background-image:url\('\K[^']+(?=')" | head -3)
+          readarray -t POSTERS <<< "$POSTER_IMAGES"
+          
+          echo "=== Extracted Data ==="
+          echo "Subscriber count: $SUBSCRIBERS"
+          echo "Post count: $POST_COUNT_K (raw: $LAST_POST_ID)"
+          echo "Recent post IDs: ${IDS[0]}, ${IDS[1]}, ${IDS[2]}"
+          echo "View counts: ${VIEWS[0]}, ${VIEWS[1]}, ${VIEWS[2]}"
+          echo "Post dates: ${DATES[0]}, ${DATES[1]}, ${DATES[2]}"
+          echo "Channel description: $CHANNEL_DESC"
+          echo "Poster images found: ${#POSTERS[@]}"
+          
+          # Set outputs
+          echo "subscribers=${SUBSCRIBERS}+" >> $GITHUB_OUTPUT
+          echo "post_count=${POST_COUNT_K}+" >> $GITHUB_OUTPUT
+          echo "post1=${IDS[0]}" >> $GITHUB_OUTPUT
+          echo "post2=${IDS[1]}" >> $GITHUB_OUTPUT
+          echo "post3=${IDS[2]}" >> $GITHUB_OUTPUT
+          echo "views1=${VIEWS[0]}" >> $GITHUB_OUTPUT
+          echo "views2=${VIEWS[1]}" >> $GITHUB_OUTPUT
+          echo "views3=${VIEWS[2]}" >> $GITHUB_OUTPUT
+          echo "date1=${DATES[0]}" >> $GITHUB_OUTPUT
+          echo "date2=${DATES[1]}" >> $GITHUB_OUTPUT
+          echo "date3=${DATES[2]}" >> $GITHUB_OUTPUT
+          echo "poster1=${POSTERS[0]}" >> $GITHUB_OUTPUT
+          echo "poster2=${POSTERS[1]}" >> $GITHUB_OUTPUT
+          echo "poster3=${POSTERS[2]}" >> $GITHUB_OUTPUT
+          echo "channel_desc=${CHANNEL_DESC}" >> $GITHUB_OUTPUT
+
+      - name: Update index.html
+        run: |
+          SUBSCRIBERS="${{ steps.fetch-data.outputs.subscribers }}"
+          POST_COUNT="${{ steps.fetch-data.outputs.post_count }}"
+          POST1="${{ steps.fetch-data.outputs.post1 }}"
+          POST2="${{ steps.fetch-data.outputs.post2 }}"
+          POST3="${{ steps.fetch-data.outputs.post3 }}"
+          
+          # Update subscriber count in spotlight tags
+          if [ -n "$SUBSCRIBERS" ]; then
+            echo "Updating subscriber count to: $SUBSCRIBERS"
+            sed -i "s/id=\"stat-subscribers\">[^<]*/id=\"stat-subscribers\">${SUBSCRIBERS}/" index.html
+            # Also update the animation target
+            sed -i "s/target: '[0-9.]*M+'/target: '${SUBSCRIBERS}'/" index.html
+          fi
+          
+          # Update movie/post count in spotlight tags
+          if [ -n "$POST_COUNT" ]; then
+            echo "Updating post count to: $POST_COUNT"
+            sed -i "s/id=\"stat-movies\">[^<]*/id=\"stat-movies\">${POST_COUNT}/" index.html
+            # Also update the animation target
+            sed -i "s/target: '[0-9.]*K+'/target: '${POST_COUNT}'/" index.html
+          fi
+          
+          # Update recent posts in the JavaScript postIds array
+          if [ -n "$POST1" ] && [ -n "$POST2" ] && [ -n "$POST3" ]; then
+            echo "Updating recent posts to: $POST1, $POST2, $POST3"
+            sed -i "s/const postIds = \['[0-9]*', '[0-9]*', '[0-9]*'\]/const postIds = ['${POST1}', '${POST2}', '${POST3}']/" index.html
+          fi
+          
+          echo "Update complete"
+
+      - name: Check for changes
+        id: check-changes
+        run: |
+          if git diff --quiet index.html; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            git diff index.html
+          fi
+
+      - name: Commit and push changes
+        if: steps.check-changes.outputs.changed == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add index.html
+          git commit -m "🔄 Auto-update Telegram stats [skip ci]"
+          git push
